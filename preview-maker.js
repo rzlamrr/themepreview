@@ -10,7 +10,7 @@ const Color = require(`@snejugal/color`);
 const { rgbToHsl } = Color;
 const puppeteer = require(`puppeteer`);
 
-const browser = puppeteer.launch();
+const browser = puppeteer.launch({ args: ['--no-sandbox'] });
 
 const variablesList = {
     dialogsBg: {

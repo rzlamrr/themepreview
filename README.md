@@ -1,18 +1,36 @@
 # ThemePreview
 
-Send him any .attheme or .tdestop-theme file and bot will return you a preview of that theme.
+Send any .attheme or .tdestop-theme file and bot will return you a preview of that theme.
 
 # Purpose
 
-This bot is created for [AW_ThemeBot](http://t.me/AW_ThemeBot) to make preview for [Theme Channel](https://t.me/JoinThemesWorld)
+To make preview for [@TgramTheming](https://t.me/TgramTheming)
 
-# Credits 
+# Install
 
-This repository originally belongs to [@AlexStrNi](https://github.com/AlexStrNik) can be found [here](https://github.com/AlexStrNik/theme-preview)
+### With HEROKU
+[![Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/rzlamrr/themepreview/tree/main)
+
+### Manual Way
+- Clone this project
+ > git clone https://github.com/rzlamrr/themepreview && cd themepreview
+
+- Install all packages
+ > npm install
+
+- Setup Environment
+ > export TOKEN="your bot token"
+
+- Run the bot
+ > npm start
+
+# Credits
 
 [@AlexStrNik](https://github.com/AlexStrNik)
 
 [@SnejUgal](https://github.com/SnejUgal)
+
+[@SurajRaj4542](https://github.com/surajraj4542)
 
 [@ShaMsiDDIn](https://github.com/shamsiddin-abdurakhimov)
 

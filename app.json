@@ -1,0 +1,24 @@
+{
+    "name": "ThemePreviewer",
+    "description": "Preview telegram theme in minimalistic and ordinary style",
+    "keywords": [
+        "telegram",
+        "theme",
+        "preview"
+    ],
+    "repository": "https://github.com/rzlamrr/themepreview",
+    "stack": "container",
+    "env": {
+        "TOKEN": {
+            "description": "Bot Token from @BotFather",
+            "required": true}
+    },
+    "addons": [],
+    "buildpacks": [],
+    "formation": {
+        "worker": {
+            "quantity": 1,
+            "size": "free"
+        }
+    }
+}
