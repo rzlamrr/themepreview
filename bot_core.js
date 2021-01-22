@@ -227,6 +227,10 @@ bot.help((context) => {
     context.reply(`Send me an .attheme file to create its preview. Don't forget to follow @TgramTheming`);
 });
 
+bot.command('source', (context) => {
+    context.reply(`Original source: https://github.com/AlexStrNik/theme-preview`);
+});
+
 bot.on(`document`, (context) => {
     choose(context);
 });
