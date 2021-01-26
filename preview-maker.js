@@ -10,7 +10,7 @@ const Color = require(`@snejugal/color`);
 const { rgbToHsl } = Color;
 const puppeteer = require(`puppeteer`);
 
-const browser = puppeteer.launch({ args: ['--no-sandbox'] });
+const browser = puppeteer.launch({ args: [`--no-sandbox`] });
 
 const variablesList = {
     dialogsBg: {
@@ -95,9 +95,9 @@ const addWallpaper = async (elements, wallpaper) => {
     const result = await Promise.all(
         elements.map(async (element) => {
             const chatWidth = Number(element.getAttribute(`width`));
+
             const chatHeight = Number(element.getAttribute(`height`));
             const ratio = chatHeight / chatWidth;
-
             const imageBuffer = Buffer.from(wallpaper, `binary`);
 
             const { width, height } = sizeOf(imageBuffer);
@@ -132,49 +132,65 @@ const addWallpaper = async (elements, wallpaper) => {
     return result;
 };
 
-function calculateAccentColor (colors) {
-    const colorsQuantity = new Map();
+const isGray = (hsl) => hsl.saturation < 0.05 || hsl.lightness > 0.92 || hsl.lightness < 0.08;
 
-    let max = 0;
-    let accentHue;
+const areColorsEqual = (firstColor, secondColor) => Math.abs(firstColor.hue - secondColor.hue) < Number.EPSILON &&
+  Math.abs(firstColor.saturation - secondColor.saturation) < Number.EPSILON &&
+  Math.abs(firstColor.lightness - secondColor.lightness) < Number.EPSILON;
+
+const calculateAccentColor = (colorsHsl) => {
+    const colors = [];
+
+    let grayColorsAmount = 0;
+
+    for (const colorHsl of colorsHsl) {
+        if (isGray(colorHsl)) {
+            grayColorsAmount += 1;
+        } else {
+            colors.push(Math.round(colorHsl.hue));
+        }
+    }
+
+    if (grayColorsAmount / 6 > colors.length) {
+        return {
+            background: { hue: 0,
+                saturation: 0,
+                lightness: 0.9 },
+            shadow: { hue: 0,
+                saturation: 0,
+                lightness: 0.3 },
+        };
+    }
+    const quantity = new Map();
+
+    let accentQuantity = 0;
+    let accent;
 
     for (const color of colors) {
-        colorsQuantity.set(color, (colorsQuantity.get(color) ?? 0) + 1);
+        quantity.set(color, (quantity.get(color) ?? 0) + 1);
 
-        if (colorsQuantity.get(color) > max) {
-            accentHue = color;
-            max = colorsQuantity.get(color);
-        }
-    }
-    const colorsHue = colors.filter((color) => colorsQuantity.get(color) == max);
-
-    colorsHue.sort((a, b) => a - b);
-
-    if (colorsHue.length > 1) {
-        let minDifference = 360;
-
-        for (let i = 0; i < colorsHue.length - 1; i++) {
-            const outerHue = colorsHue[i];
-            const innerHue = colorsHue[i + 1];
-
-            if (Math.abs(outerHue - innerHue) < minDifference) {
-                minDifference = Math.abs(outerHue - innerHue);
-                accentHue = (outerHue + innerHue) / 2;
-            }
+        if (quantity.get(color) > accentQuantity) {
+            accent = color;
+            accentQuantity = quantity.get(color);
         }
     }
 
-    return accentHue;
-}
-const rgbDifference = (color1, color2) => {
-    const result = Math.hypot(
-        color1.red - color2.red,
-        color1.green - color2.green,
-        color1.blue - color2.blue
-    );
-
-    return result;
+    return {
+        background: { hue: accent,
+            saturation: 1,
+            lightness: 0.9 },
+        shadow: { hue: accent,
+            saturation: 1,
+            lightness: 0.02 },
+    };
 };
+
+const rgbDifference = (color1, color2) => Math.hypot(
+    color1.red - color2.red,
+    color1.green - color2.green,
+    color1.blue - color2.blue
+);
+
 const fill = (rootNode, color) => {
     const cssColor =
     `red` in color
@@ -215,8 +231,6 @@ const makePrevDesktop = async (themeBuffer) => {
 
     const colors = [];
 
-    const dialogsBg = rgbToHsl(theme.resolveVariable(`dialogsBg`));
-
     for (const variable of variables) {
         const elements = getElementsByClassName(preview, variable);
         const color = theme.resolveVariable(variable);
@@ -224,47 +238,25 @@ const makePrevDesktop = async (themeBuffer) => {
         for (const element of elements) {
             fill(element, color);
         }
-        const chooseHsl = rgbToHsl(color);
+        const dialogsBg = rgbToHsl(theme.resolveVariable(`dialogsBg`));
+        const colorHsl = rgbToHsl(color);
 
-        let hueDifference = Math.abs(chooseHsl.hue - rgbToHsl(dialogsBg).hue);
-
-        if (hueDifference > 180) {
-            hueDifference = 360 - hueDifference;
-        }
-        const saturationDifference = Math.abs(
-            chooseHsl.saturation - dialogsBg.saturation
-        );
-
-        if (
-            hueDifference > 2 &&
-      chooseHsl.saturation > 0.04 &&
-      saturationDifference > 0.02
-        ) {
-            colors.push(Math.round(chooseHsl.hue));
+        if (!areColorsEqual(dialogsBg, colorHsl) && elements.length > 0) {
+            colors.push(colorHsl);
         }
     }
 
-    let accentHue;
-
-    if (colors.length > 0) {
-        accentHue = calculateAccentColor(colors);
-    } else {
-        accentHue = rgbToHsl(theme.resolveVariable(`windowActiveTextFg`)).hue;
-    }
+    const { background, shadow } = calculateAccentColor(colors);
 
     for (const previewBack of getElementsByClassName(preview, `PreviewBack`)) {
-        fill(previewBack, { hue: accentHue,
-            saturation: 1,
-            lightness: 0.9 });
+        fill(previewBack, background);
     }
 
     for (const previewShadow of getElementsByClassName(
         preview,
         `PreviewShadow`
     )) {
-        fill(previewShadow, { hue: accentHue,
-            saturation: 1,
-            lightness: 0.02 });
+        fill(previewShadow, shadow);
     }
 
     for (const background in variablesList) {
@@ -317,9 +309,12 @@ const makePrevDesktop = async (themeBuffer) => {
     const elements = getElementsByClassName(preview, `IMG`);
 
     const { wallpaper } = theme;
-    const wallpaperBytes = wallpaper?.bytes.length > 0 ? wallpaper.bytes : defaultTheme.wallpaper.bytes;
+    const wallpaperBytes =
+    wallpaper?.bytes.length > 0
+        ? wallpaper.bytes
+        : defaultTheme.wallpaper.bytes;
 
-    await addWallpaper(elements, Buffer.from(wallpaperBuffer));
+    await addWallpaper(elements, Buffer.from(wallpaperBytes));
     wallpaper?.free();
     theme.free();
 
@@ -375,36 +370,15 @@ const makePrevAndroid = async (
         for (const element of elements) {
             fill(element, color);
         }
-        const chooseHsl = rgbToHsl(color);
+        const colorHsl = rgbToHsl(color);
+        const dialogsBg = rgbToHsl(windowBackgroundWhite);
 
-        let hueDifference = Math.abs(
-            chooseHsl.hue - rgbToHsl(windowBackgroundWhite).hue
-        );
-
-        if (hueDifference > 180) {
-            hueDifference = 360 - hueDifference;
-        }
-        const saturationDifference = Math.abs(
-            chooseHsl.saturation - windowBackgroundWhite.saturation
-        );
-
-        if (
-            hueDifference > 2 &&
-      chooseHsl.saturation > 0.04 &&
-      saturationDifference > 0.02
-        ) {
-            colors.push(Math.round(chooseHsl.hue));
+        if (!areColorsEqual(dialogsBg, colorHsl) && elements.length > 0) {
+            colors.push(colorHsl);
         }
     }
 
-    if (colors.length > 0) {
-        accentHue = calculateAccentColor(colors);
-    } else {
-        accentHue = rgbToHsl(
-            theme.chats_actionBackground ||
-        defaultVariablesValues.chats_actionBackground
-        ).hue;
-    }
+    const { background, shadow } = calculateAccentColor(colors);
 
     for (const outBubbleGradientelement of getElementsByClassName(
         preview,
@@ -417,17 +391,19 @@ const makePrevAndroid = async (
 
         fill(outBubbleGradientelement, color);
     }
+    const outBubbleHsl = rgbToHsl(outBubble);
+    const outBubbleGradient = theme.chat_outBubbleGradient || outBubble;
+    const outBubbleGradientHsl = rgbToHsl(outBubbleGradient);
 
     for (const previewBackLinear of getElementsByClassName(
         preview,
         `PreviewBackLinear`
     )) {
-        const chatOutBubble =
-      theme.chat_outBubble || defaultVariablesValues.chat_outBubble;
+        const colorSaturation = isGray(outBubbleGradientHsl) ? 0 : 1;
 
         fill(previewBackLinear, {
-            hue: rgbToHsl(theme.chat_outBubbleGradient || chatOutBubble).hue,
-            saturation: 1,
+            hue: outBubbleGradientHsl.hue,
+            saturation: colorSaturation,
             lightness: 0.9,
         });
     }
@@ -436,28 +412,27 @@ const makePrevAndroid = async (
         preview,
         `PreviewBackLinearShadow`
     )) {
+        const colorSaturation = isGray(outBubbleHsl) ? 0 : 1;
+
         fill(previewBackLinearShadow, {
-            hue: rgbToHsl(
-                theme.chat_outBubble || defaultVariablesValues.chat_outBubble
-            ).hue,
-            saturation: 1,
+            hue: outBubbleHsl.hue,
+            saturation: colorSaturation,
             lightness: 0.9,
         });
     }
 
     for (const previewBack of getElementsByClassName(preview, `PreviewBack`)) {
-        fill(previewBack, { hue: accentHue,
-            saturation: 1,
-            lightness: 0.9 });
+        fill(previewBack, background);
     }
 
     for (const chatShadow of getElementsByClassName(preview, `ChatShadow`)) {
-        fill(chatShadow, { hue: accentHue,
-            saturation: 1,
-            lightness: 0.02 });
+        fill(chatShadow, shadow);
     }
 
-    if (`chat_outBubbleGradient` in theme) {
+    if (
+        `chat_outBubbleGradient` in theme &&
+    rgbDifference(outBubble, outBubbleGradient) < 10
+    ) {
         for (const previewBack of getElementsByClassName(preview, `PreviewBack`)) {
             fill(previewBack, { red: 0,
                 green: 0,
@@ -512,13 +487,8 @@ const makePrevAndroid = async (
     theme.chat_inBubble || defaultVariablesValues.chat_inBubble;
     const chatOutLoader =
     theme.chat_outLoader || defaultVariablesValues.chat_outLoader;
-    const chatOutBubble =
-    theme.chat_outBubble || defaultVariablesValues.chat_outBubble;
     const inLoaderAndBubbleDifference = rgbDifference(chatInLoader, chatInBubble);
-    const outLoaderAndBubbleDifference = rgbDifference(
-        chatOutLoader,
-        chatOutBubble
-    );
+    const outLoaderAndBubbleDifference = rgbDifference(chatOutLoader, outBubble);
     const chatInMediaIcon =
     theme.chat_inMediaIcon || defaultVariablesValues.chat_inMediaIcon;
     const chatOutMediaIcon =
